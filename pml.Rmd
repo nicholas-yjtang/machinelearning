@@ -1,0 +1,131 @@
+---
+title: "Prediction model on how well dumbbell lifts are performed"
+author: "Nicholas Tang"
+date: "Sunday, November 23, 2014"
+output: html_document
+---
+
+#Executive Summary
+
+The goal of our project is to produce a good machine learning model that predicts the *classe* variable, or the manner which a person does dumbbell lifts.
+
+```{r, echo=FALSE, cache=TRUE, message=F, warning=F}
+setInternet2(use = TRUE)
+source("https://raw.githubusercontent.com/nicholas-yjtang/rutils/master/get_data.R")
+url <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+get_data( "pml-training.csv",url)
+
+```
+
+#Data
+The source of the data is located at https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv  
+
+The data consists of many features that come from sensors located on the body (arm, forearm, belt) and the dumbbell itself.  
+
+```{r}
+training <- read.csv("pml-training.csv", na.strings=c("NA","#DIV/0!"))
+```
+
+#Data cleaning, Feature Selection
+
+Exploring the data, we notice a few particular features which are not very useful  
+1. The user's name  
+2. The timestamp. It is mostly unique, so there is little value on its own  
+3. The row number  
+
+We will exclude these columns from our training
+
+Apart from these, there are a number of columns which have many NA results (when window=FALSE). These columns are a summarised statistic when window=TRUE. Although this information can be important under certain scenarios, this information is not particular useful as it can only help prediction for these small subset of data, and the test set (as given) does not include any such information. As such we exclude both the window, and these columns with many NA results
+
+```{r}
+has_useful_information <- function(colname, data) {
+  totalrecords <- nrow(training)
+  returnnames <- ""
+  if (sum(is.na(training[,colname]))/nrow(training)<0.05) {
+    returnnames <- colname
+  }
+  returnnames
+}
+useful_variables <- sapply(names(training), has_useful_information, training)
+useful_variables <- useful_variables[useful_variables!=""]
+useful_variables <- useful_variables[!grepl("timestamp",useful_variables)]
+useful_variables <- useful_variables[!grepl("^X$",useful_variables)]
+useful_variables <- useful_variables[!grepl("window",useful_variables)]
+useful_variables <- useful_variables[!grepl("user_name",useful_variables)]
+final_training <- training[,useful_variables]
+
+```
+
+#Training and validation sets
+
+We will partition our training data (randomly), into 70% for training, and 30% for validation  
+
+```{r, message=F, warning=F}
+library(caret)
+set.seed(12345)
+inTrain <- createDataPartition(y=final_training$classe,p=0.7, list=FALSE)
+partTraining <- final_training[inTrain,]
+partValidation <- final_training[-inTrain,]
+```
+
+#Model building
+
+For our model, we will use boosted tree (gbm).  
+
+As part of the model building, we will use k-fold cross validation(size of 10) with *trainControl*.  
+
+```{r, message=F, warning=F, echo=FALSE} 
+library(doSNOW)
+cluster <- makeCluster(4) # should be the number of cores of your machine
+registerDoSNOW(cluster)
+
+```
+
+```{r, message=F, warning=F, cache=TRUE}
+fitControl <- trainControl(method="cv", number=10)
+modFit <- train(classe ~ ., data=partTraining, method="gbm", trControl = fitControl, verbose=FALSE)
+
+```
+
+```{r,message=F, warning=F, echo=FALSE} 
+stopCluster(cluster)
+```
+
+We look at the resampling results based on accuracy
+
+```{r}
+plot(modFit)
+```
+
+We have a look at the confusion matrix of this particular model (for in sample error rate)
+
+```{r, message=F, warning=F, results='asis'}
+library(pander)
+prediction <- predict(modFit, partTraining)
+prediction_results <- confusionMatrix(prediction, partTraining$classe)
+pander(prediction_results$table)
+```
+
+The accuracy is as follows
+
+```{r}
+prediction_results$overall["Accuracy"]
+```
+
+#Out of sample expected error rate
+
+Using our reserved validation set (30% partitioned), we will use this set to calculate the expected out of sample error rate. First the confusion matrix
+
+```{r, message=F, warning=F, results='asis'}
+prediction <- predict(modFit, partValidation)
+prediction_results <- confusionMatrix(prediction, partValidation$classe)
+pander(prediction_results$table)
+```
+
+The accuracy is as follows
+
+```{r}
+prediction_results$overall["Accuracy"]
+```
+
+We notice the rate is quite close to the calculated in sample accuracy rate
