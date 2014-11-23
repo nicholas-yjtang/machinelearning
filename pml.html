@@ -91,17 +91,17 @@ final_training &lt;- training[,useful_variables]</code></pre>
 </div>
 <div id="training-and-validation-sets" class="section level1">
 <h1>Training and validation sets</h1>
-<p>We will partition our training data (randomly), into 70% for training, and 30% for validation</p>
+<p>We will partition our training data (randomly), into 60% for training, and 40% for validation. The training data will be used to build the model, and the validaton data is for the final out of sample error rate.</p>
 <pre class="r"><code>library(caret)
 set.seed(12345)
-inTrain &lt;- createDataPartition(y=final_training$classe,p=0.7, list=FALSE)
+inTrain &lt;- createDataPartition(y=final_training$classe,p=0.6, list=FALSE)
 partTraining &lt;- final_training[inTrain,]
 partValidation &lt;- final_training[-inTrain,]</code></pre>
 </div>
 <div id="model-building" class="section level1">
 <h1>Model building</h1>
 <p>For our model, we will use boosted tree (gbm).</p>
-<p>As part of the model building, we will use k-fold cross validation(size of 10) with <em>trainControl</em>.</p>
+<p>As part of the model building, we will use k-fold cross validation(size of 10) with <strong>trainControl</strong>.</p>
 <pre class="r"><code>fitControl &lt;- trainControl(method=&quot;cv&quot;, number=10)
 modFit &lt;- train(classe ~ ., data=partTraining, method=&quot;gbm&quot;, trControl = fitControl, verbose=FALSE)</code></pre>
 <p>We look at the resampling results based on accuracy</p>
@@ -134,54 +134,51 @@ pander(prediction_results$table)</code></pre>
 <tbody>
 <tr class="odd">
 <td align="left"><strong>A</strong></td>
-<td align="center">3874</td>
-<td align="center">60</td>
+<td align="center">3317</td>
+<td align="center">65</td>
 <td align="center">0</td>
 <td align="center">1</td>
-<td align="center">2</td>
+<td align="center">4</td>
 </tr>
 <tr class="even">
 <td align="left"><strong>B</strong></td>
-<td align="center">16</td>
-<td align="center">2552</td>
-<td align="center">50</td>
-<td align="center">7</td>
 <td align="center">15</td>
+<td align="center">2172</td>
+<td align="center">59</td>
+<td align="center">4</td>
+<td align="center">16</td>
 </tr>
 <tr class="odd">
 <td align="left"><strong>C</strong></td>
 <td align="center">11</td>
-<td align="center">45</td>
-<td align="center">2324</td>
+<td align="center">41</td>
+<td align="center">1964</td>
 <td align="center">52</td>
-<td align="center">20</td>
+<td align="center">14</td>
 </tr>
 <tr class="even">
 <td align="left"><strong>D</strong></td>
 <td align="center">4</td>
 <td align="center">0</td>
-<td align="center">17</td>
-<td align="center">2184</td>
-<td align="center">22</td>
+<td align="center">25</td>
+<td align="center">1864</td>
+<td align="center">23</td>
 </tr>
 <tr class="odd">
 <td align="left"><strong>E</strong></td>
 <td align="center">1</td>
 <td align="center">1</td>
-<td align="center">5</td>
-<td align="center">8</td>
-<td align="center">2466</td>
+<td align="center">6</td>
+<td align="center">9</td>
+<td align="center">2108</td>
 </tr>
 </tbody>
 </table>
-<p>The accuracy is as follows</p>
-<pre class="r"><code>prediction_results$overall[&quot;Accuracy&quot;]</code></pre>
-<pre><code>## Accuracy 
-##   0.9755</code></pre>
+<p>The in sample accuracy of our model is <strong>0.9702</strong></p>
 </div>
 <div id="out-of-sample-expected-error-rate" class="section level1">
 <h1>Out of sample expected error rate</h1>
-<p>Using our reserved validation set (30% partitioned), we will use this set to calculate the expected out of sample error rate. First the confusion matrix</p>
+<p>Using our reserved validation set (40% previously partitioned), we will use this set to calculate the expected out of sample error rate. First the confusion matrix</p>
 <pre class="r"><code>prediction &lt;- predict(modFit, partValidation)
 prediction_results &lt;- confusionMatrix(prediction, partValidation$classe)
 pander(prediction_results$table)</code></pre>
@@ -190,9 +187,9 @@ pander(prediction_results$table)</code></pre>
 <col width="11%"></col>
 <col width="6%"></col>
 <col width="6%"></col>
-<col width="5%"></col>
-<col width="5%"></col>
-<col width="5%"></col>
+<col width="6%"></col>
+<col width="6%"></col>
+<col width="6%"></col>
 </colgroup>
 <thead>
 <tr class="header">
@@ -207,51 +204,48 @@ pander(prediction_results$table)</code></pre>
 <tbody>
 <tr class="odd">
 <td align="left"><strong>A</strong></td>
-<td align="center">1651</td>
-<td align="center">38</td>
+<td align="center">2208</td>
+<td align="center">33</td>
 <td align="center">0</td>
 <td align="center">2</td>
-<td align="center">2</td>
+<td align="center">0</td>
 </tr>
 <tr class="even">
 <td align="left"><strong>B</strong></td>
-<td align="center">16</td>
-<td align="center">1069</td>
-<td align="center">37</td>
-<td align="center">4</td>
 <td align="center">17</td>
+<td align="center">1449</td>
+<td align="center">28</td>
+<td align="center">7</td>
+<td align="center">16</td>
 </tr>
 <tr class="odd">
 <td align="left"><strong>C</strong></td>
 <td align="center">4</td>
-<td align="center">31</td>
-<td align="center">969</td>
+<td align="center">35</td>
+<td align="center">1329</td>
 <td align="center">32</td>
-<td align="center">7</td>
+<td align="center">13</td>
 </tr>
 <tr class="even">
 <td align="left"><strong>D</strong></td>
 <td align="center">3</td>
 <td align="center">0</td>
+<td align="center">10</td>
+<td align="center">1239</td>
 <td align="center">18</td>
-<td align="center">919</td>
-<td align="center">19</td>
 </tr>
 <tr class="odd">
 <td align="left"><strong>E</strong></td>
 <td align="center">0</td>
 <td align="center">1</td>
-<td align="center">2</td>
-<td align="center">7</td>
-<td align="center">1037</td>
+<td align="center">1</td>
+<td align="center">6</td>
+<td align="center">1395</td>
 </tr>
 </tbody>
 </table>
-<p>The accuracy is as follows</p>
-<pre class="r"><code>prediction_results$overall[&quot;Accuracy&quot;]</code></pre>
-<pre><code>## Accuracy 
-##   0.9592</code></pre>
-<p>We notice the rate is quite close to the calculated in sample accuracy rate</p>
+<p>The out of sample accuracy of our model is <strong>0.9712</strong></p>
+<p>We notice the rate is relatively close to the calculated in sample accuracy rate</p>
 </div>
 
 

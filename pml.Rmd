@@ -3,6 +3,7 @@ title: "Prediction model on how well dumbbell lifts are performed"
 author: "Nicholas Tang"
 date: "Sunday, November 23, 2014"
 output: html_document
+keep_md: yes
 ---
 
 #Executive Summary
@@ -14,7 +15,8 @@ setInternet2(use = TRUE)
 source("https://raw.githubusercontent.com/nicholas-yjtang/rutils/master/get_data.R")
 url <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
 get_data( "pml-training.csv",url)
-
+url <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+get_data( "pml-testing.csv",url)
 ```
 
 #Data
@@ -58,12 +60,12 @@ final_training <- training[,useful_variables]
 
 #Training and validation sets
 
-We will partition our training data (randomly), into 70% for training, and 30% for validation  
+We will partition our training data (randomly), into 60% for training, and 40% for validation. The training data will be used to build the model, and the validaton data is for the final out of sample error rate.  
 
 ```{r, message=F, warning=F}
 library(caret)
 set.seed(12345)
-inTrain <- createDataPartition(y=final_training$classe,p=0.7, list=FALSE)
+inTrain <- createDataPartition(y=final_training$classe,p=0.6, list=FALSE)
 partTraining <- final_training[inTrain,]
 partValidation <- final_training[-inTrain,]
 ```
@@ -72,7 +74,7 @@ partValidation <- final_training[-inTrain,]
 
 For our model, we will use boosted tree (gbm).  
 
-As part of the model building, we will use k-fold cross validation(size of 10) with *trainControl*.  
+As part of the model building, we will use k-fold cross validation(size of 10) with **trainControl**.  
 
 ```{r, message=F, warning=F, echo=FALSE} 
 library(doSNOW)
@@ -106,15 +108,11 @@ prediction_results <- confusionMatrix(prediction, partTraining$classe)
 pander(prediction_results$table)
 ```
 
-The accuracy is as follows
-
-```{r}
-prediction_results$overall["Accuracy"]
-```
+The in sample accuracy of our model is **`r prediction_results$overall["Accuracy"]`**
 
 #Out of sample expected error rate
 
-Using our reserved validation set (30% partitioned), we will use this set to calculate the expected out of sample error rate. First the confusion matrix
+Using our reserved validation set (40% previously partitioned), we will use this set to calculate the expected out of sample error rate. First the confusion matrix
 
 ```{r, message=F, warning=F, results='asis'}
 prediction <- predict(modFit, partValidation)
@@ -122,10 +120,24 @@ prediction_results <- confusionMatrix(prediction, partValidation$classe)
 pander(prediction_results$table)
 ```
 
-The accuracy is as follows
+The out of sample accuracy of our model is **`r prediction_results$overall["Accuracy"]`**
 
-```{r}
-prediction_results$overall["Accuracy"]
+We notice the rate is relatively close to the calculated in sample accuracy rate
+
+```{r, echo=F, message=F, warning=F,results='hide'}
+test <- read.csv("pml-testing.csv")
+just_variables <- useful_variables[!grepl("classe",useful_variables)]
+final_test <- test[,just_variables]
+prediction <- predict(modFit, final_test)
+
+pml_write_files = function(x){
+  n = length(x)
+  for(i in 1:n){
+    filename = paste0("problem_id_",i,".txt")
+    write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+  }
+}
+
+pml_write_files(prediction)
+
 ```
-
-We notice the rate is quite close to the calculated in sample accuracy rate
